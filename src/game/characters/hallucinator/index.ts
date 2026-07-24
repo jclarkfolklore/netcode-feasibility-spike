@@ -1,0 +1,70 @@
+import type { CharacterDef } from "../types";
+
+export const config: CharacterDef = {
+  id: "hallucinator",
+  name: "The Hallucinator",
+  tagline: "99% confidence. 40% accurate.",
+  icon: "spiral",
+  stats: { health: 95, speed: 5, power: 7, defense: 4 },
+  traits: ["hallucination_crit"],
+  moves: {
+    light: "context_loss",
+    heavy: "hallucination_crit",
+    special: "fabricated_facts",
+  },
+  colors: { primary: "#a855f7", accent: "#d8b4fe" },
+  rig: {
+    scale: 1.0,
+    bodySize: { width: 54, height: 88 },
+    parts: {
+      torso: {
+        shape: "rect",
+        width: 54,
+        height: 88,
+        offset: { x: 0, y: 0 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 3,
+      },
+      head: {
+        shape: "circle",
+        width: 46,
+        height: 46,
+        offset: { x: 0, y: -62 },
+        fill: "accent",
+        alpha: 0.92,
+      },
+      legL: {
+        shape: "rect",
+        width: 18,
+        height: 28,
+        offset: { x: -14, y: 53 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 2,
+      },
+      legR: {
+        shape: "rect",
+        width: 18,
+        height: 28,
+        offset: { x: 14, y: 53 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 2,
+      },
+    },
+    attacks: {
+      light: { reach: 22, duration: 145 },
+      heavy: { reach: 40, duration: 225, armY: -12, torsoLunge: 15 },
+      special: {
+        reach: 52,
+        duration: 450,
+        armY: -28,
+        torsoLunge: 22,
+        ringBurst: true,
+        badgeLabel: "FABRICATED FACTS",
+        badgeHoldMs: 1200,
+      },
+    },
+  },
+};

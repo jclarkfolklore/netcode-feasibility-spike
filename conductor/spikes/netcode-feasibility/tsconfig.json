@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    // Deliberately off (not just "strict: true" left as-is): src/game files
+    // read-only-imported across the F5 boundary have pre-existing unused
+    // members (e.g. InputManager.ts's `scene` field) that are fine under the
+    // root tsconfig (no noUnusedLocals there) but would hard-fail this
+    // harness's typecheck the moment 008.5 imports them, for a reason that
+    // has nothing to do with the harness's own code quality. Verified via a
+    // throwaway import + `tsc --noEmit` (see NOTES.md).
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  // This harness's own source. `../../../src/game` (the real Phaser sim,
+  // read-only) is reachable via plain relative imports from files under
+  // src/** — three levels up from this tsconfig's directory
+  // (conductor/spikes/netcode-feasibility) lands at the repo root, matching
+  // contracts.md §7 and the Render "full repo is cloned" semantics. No path
+  // alias is declared for it: 008.1 does not import it yet (see NOTES.md);
+  // when 008.5 adds `import { FightScene } from "../../../src/game/scenes/FightScene"`
+  // it will typecheck under this config because moduleResolution "bundler"
+  // + skipLibCheck follow Node's own upward node_modules search, which finds
+  // the root's `phaser` package without any extra configuration here.
+  //
+  // NOT reachable this way: src/game/scenes/PreviewScene.ts and
+  // src/game/previewMain.ts, which import via the root's `@/*` alias — that
+  // alias is Next.js/root-tsconfig-only and intentionally not replicated
+  // here. Per the sub-spec, the harness must not import those two files.
+  "include": ["src", "vite.config.ts", "vitest.config.ts", "tests"],
+  "exclude": ["node_modules", "dist"]
+}

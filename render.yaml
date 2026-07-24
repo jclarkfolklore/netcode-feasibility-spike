@@ -1,0 +1,32 @@
+# Render Blueprint for the netcode-feasibility spike (sub-spec 008.2).
+#
+# `rootDir` scopes BOTH where Render runs `buildCommand`/`startCommand`
+# from AND what Render watches for auto-deploy-on-push diffs — but Render
+# still clones the FULL repository (this is a Blueprint for one service
+# within a larger repo, not a repo-per-service setup). That's required
+# here: this harness imports `../../../src/game/*` read-only (the netcode
+# scenes subclass the REAL FightScene). `phaser` is now vendored into THIS
+# package (self-contained, pinned 4.1.0) so the build no longer reaches to
+# the repo root for it — but `src/game` still lives one clone away, so do
+# NOT deploy only a subtree checkout; the deploy source must contain BOTH
+# this folder and the repo's `src/game`. See DEPLOY.md.
+#
+# The main app (root `package.json`, root `src/`, everything outside this
+# folder) is never built or started by this service — `rootDir` scopes
+# `buildCommand`/`startCommand`'s working directory to this folder only.
+services:
+  - type: web
+    name: netcode-feasibility-spike
+    runtime: node
+    plan: free # Render free tier — see DEPLOY.md for the cold-start caveat.
+    rootDir: conductor/spikes/netcode-feasibility
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+      # PORT is injected by Render itself; our server reads
+      # `process.env.PORT` (server/index.ts) and derives INTERNAL_PORT
+      # internally — no envVar needed for it here.

@@ -1,0 +1,76 @@
+import type { CharacterDef } from "../types";
+
+export const config: CharacterDef = {
+  id: "architect",
+  name: "The Architect",
+  tagline: "Perfect plan. Terrible latency.",
+  icon: "ruler",
+  stats: { health: 110, speed: 3, power: 5, defense: 6 },
+  traits: ["high_defense"],
+  moves: {
+    light: "token_overflow",
+    heavy: "blueprint_slam",
+    special: "master_plan",
+  },
+  colors: { primary: "#3b82f6", accent: "#93c5fd" },
+  rig: {
+    scale: 1.02,
+    bodySize: { width: 58, height: 92 },
+    parts: {
+      torso: {
+        shape: "rect",
+        width: 58,
+        height: 92,
+        offset: { x: 0, y: 0 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 3,
+      },
+      head: {
+        shape: "rect",
+        width: 44,
+        height: 34,
+        offset: { x: 0, y: -62 },
+        fill: "accent",
+      },
+      armL: {
+        shape: "rect",
+        width: 24,
+        height: 12,
+        offset: { x: -34, y: -20 },
+        fill: "accent",
+      },
+      legL: {
+        shape: "rect",
+        width: 20,
+        height: 30,
+        offset: { x: -16, y: 57 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 2,
+      },
+      legR: {
+        shape: "rect",
+        width: 20,
+        height: 30,
+        offset: { x: 16, y: 57 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 2,
+      },
+    },
+    attacks: {
+      light: { reach: 22, duration: 155 },
+      heavy: { reach: 36, duration: 240 },
+      special: {
+        reach: 54,
+        duration: 480,
+        armY: -26,
+        torsoLunge: 24,
+        ringBurst: true,
+        badgeLabel: "MASTER PLAN",
+        badgeHoldMs: 1100,
+      },
+    },
+  },
+};

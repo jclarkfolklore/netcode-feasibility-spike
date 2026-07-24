@@ -1,0 +1,71 @@
+import type { CharacterDef } from "../types";
+
+export const config: CharacterDef = {
+  id: "contentful_overlord",
+  name: "Contentful Overlord",
+  tagline: "Your content model weeps.",
+  icon: "crown",
+  stats: { health: 100, speed: 5, power: 6, defense: 6 },
+  traits: ["structured_damage"],
+  moves: {
+    light: "token_overflow",
+    heavy: "broken_reference",
+    special: "migration_wave",
+  },
+  colors: { primary: "#0ea5e9", accent: "#7dd3fc" },
+  rig: {
+    scale: 1.06,
+    bodySize: { width: 52, height: 98 },
+    parts: {
+      torso: {
+        shape: "rect",
+        width: 52,
+        height: 98,
+        offset: { x: 0, y: 0 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 3,
+      },
+      head: {
+        shape: "rect",
+        width: 40,
+        height: 40,
+        offset: { x: 0, y: -70 },
+        fill: "accent",
+        stroke: "primary",
+        strokeWidth: 2,
+      },
+      legL: {
+        shape: "rect",
+        width: 18,
+        height: 30,
+        offset: { x: -13, y: 60 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 2,
+      },
+      legR: {
+        shape: "rect",
+        width: 18,
+        height: 30,
+        offset: { x: 13, y: 60 },
+        fill: "primary",
+        stroke: "accent",
+        strokeWidth: 2,
+      },
+    },
+    attacks: {
+      light: { reach: 22, duration: 142 },
+      heavy: { reach: 36, duration: 225 },
+      special: {
+        reach: 50,
+        duration: 460,
+        armY: -26,
+        torsoLunge: 22,
+        ringBurst: true,
+        badgeLabel: "MIGRATION WAVE",
+        badgeHoldMs: 1100,
+      },
+    },
+  },
+};

@@ -1,0 +1,43 @@
+{
+  "name": "netcode-feasibility-harness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-contained SPA harness for track 008 (netcode-feasibility). Not part of the root npm workspace.",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n server,client -c green,blue \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "tsc -b --noEmit && tsc -p server/tsconfig.json && vite build",
+    "typecheck:server": "tsc -p server/tsconfig.json",
+    "start": "tsx server/index.ts",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "dependencies": {
+    "phaser": "4.1.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "ws": "^8.21.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "@types/react": "^19.2.6",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.5.13",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.24.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.30.1",
+    "vite": "^6.3.1",
+    "vitest": "^3.1.1"
+  }
+}

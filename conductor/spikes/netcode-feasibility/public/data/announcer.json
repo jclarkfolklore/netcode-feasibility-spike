@@ -1,0 +1,37 @@
+{
+  "roundStart": [
+    "Agents, initialize!",
+    "Prompt Wars — fight!",
+    "Context window: OPEN!",
+    "Deploying fighters to the arena…"
+  ],
+  "bigHit": [
+    "Critical token hit!",
+    "That's a hallucination crit!",
+    "Rate limit exceeded!",
+    "Merged to main!",
+    "Scope creep critical!"
+  ],
+  "miss": [
+    "Context lost!",
+    "Confidence dropping…",
+    "That prompt missed the mark.",
+    "404: punch not found."
+  ],
+  "lowConfidence": [
+    "Confidence below threshold!",
+    "Model uncertainty rising…",
+    "Needs human review!"
+  ],
+  "ko": [
+    "KNOCKOUT! Model offline.",
+    "Production is down!",
+    "Ticket closed: WONTFIX.",
+    "Arena winner declared!"
+  ],
+  "block": [
+    "Blocked by PM shield!",
+    "QA goblin rejects that move!",
+    "Stakeholder wall deployed."
+  ]
+}
