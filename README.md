@@ -1,5 +1,8 @@
 # Netcode Feasibility Spike — Rock 'Em Sock 'Em
 
+**▶ Live:** https://netcode-feasibility-spike.onrender.com/
+&nbsp;(Render free tier — the first load after ~15 min idle takes ~30–60 s to wake; a "waking server" banner shows meanwhile.)
+
 A self-contained, deployable **measurement instrument** that answers one question for the
 [rock-em-sock-em](https://github.com/Folklore-Digital/rock-em-sock-em) browser fighting game with
 **real data instead of guesswork**:
@@ -81,10 +84,10 @@ Apply**. It builds `conductor/spikes/netcode-feasibility` (`npm install && npm r
 
 ## The two-machine felt-lag test (the point)
 
-Once deployed, on each machine open the same URL with a shared room:
+On each machine open the live URL with a shared room:
 
-- **Host:** `https://<your-url>/?room=test&role=host#/e2e-remote-input`
-- **Guest:** `https://<your-url>/?room=test&role=guest#/e2e-remote-input`
+- **Host:** https://netcode-feasibility-spike.onrender.com/?room=test&role=host#/e2e-remote-input
+- **Guest:** https://netcode-feasibility-spike.onrender.com/?room=test&role=guest#/e2e-remote-input
 
 Run the measurement — the **guest** produces the trustworthy felt-lag distribution. Same-region
 (same wifi / nearby) matches the project's target; that reading is what the whole spike exists to
