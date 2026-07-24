@@ -120,20 +120,68 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
       setCompanionConnected(false);
       return;
     }
-    const transport = new WebSocketTransport({
-      room: `${session.room}::control`,
-      role: session.role,
-    });
-    companionTransportRef.current = transport;
-    transport.onStateChange((s) => setCompanionConnected(s === "open"));
 
-    const stopCompanion =
-      session.role === "guest" ? startCompanion(transport, experiences) : undefined;
+    // The control channel MUST stay alive so a host-driven run always reaches
+    // the guest — but the free-tier relay drops idle sockets and the server can
+    // spin down/restart, which silently killed it (no reconnect) and made the
+    // guest un-cueable. Fix: reconnect with backoff on any unexpected close, +
+    // a keepalive ping so an idle socket isn't dropped in the first place.
+    let cancelled = false;
+    let attempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let active: { transport: Transport; stop?: () => void; keepAlive: ReturnType<typeof setInterval>; handled: boolean } | null =
+      null;
+
+    const teardownActive = () => {
+      if (!active) return;
+      active.handled = true;
+      clearInterval(active.keepAlive);
+      active.stop?.();
+      active.transport.close();
+      active = null;
+    };
+
+    const connect = () => {
+      if (cancelled) return;
+      const transport = new WebSocketTransport({ room: `${session.room}::control`, role: session.role });
+      companionTransportRef.current = transport;
+      let pingSeq = 0;
+      const keepAlive = setInterval(() => {
+        try {
+          transport.send({ t: "ping", seq: pingSeq++, t0: performance.now() });
+        } catch {
+          /* socket not open yet / closing — ignore */
+        }
+      }, 25_000);
+      const stop = session.role === "guest" ? startCompanion(transport, experiences) : undefined;
+      const entry = { transport, stop, keepAlive, handled: false };
+      active = entry;
+
+      transport.onStateChange((s) => {
+        if (cancelled || active !== entry) return;
+        if (s === "open") {
+          attempt = 0;
+          setCompanionConnected(true);
+        } else if (s === "closed") {
+          if (entry.handled) return;
+          entry.handled = true;
+          clearInterval(entry.keepAlive);
+          entry.stop?.();
+          active = null;
+          setCompanionConnected(false);
+          const delay = Math.min(1000 * 2 ** attempt, 10_000);
+          attempt += 1;
+          reconnectTimer = setTimeout(connect, delay);
+        }
+      });
+    };
+    connect();
 
     return () => {
-      stopCompanion?.();
-      transport.close();
-      if (companionTransportRef.current === transport) companionTransportRef.current = null;
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      teardownActive();
+      companionTransportRef.current = null;
       setCompanionConnected(false);
     };
     // `experiences` is stable per session (useMemo above depends only on

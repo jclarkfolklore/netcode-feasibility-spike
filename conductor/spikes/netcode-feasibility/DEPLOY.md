@@ -6,35 +6,44 @@ the Blueprint mechanism follows the quick-start.
 
 ## Quick start — `npm run deploy`
 
+Deploys spike-only, from this machine, **no Docker, no monorepo**. Auto-deploy-on-push is
+**intentionally OFF** (`render.yaml` `autoDeploy: false` + set on the service). So a plain push
+never builds — `npm run deploy` maintains a standalone snapshot repo (this spike + `src/game` +
+`render.yaml`), pushes it, and then **explicitly triggers** a Render build via the CLI.
+
 ```
-npm run deploy          # builds (tsc + vite), then triggers a Render deploy
+npm run deploy          # sanity build → sync snapshot → commit → push → `render deploys create` (explicit)
 ```
+Needs the service id (already saved in `.render-service` = `srv-d9hs8vd7vvec73f2e6s0`) and the CLI
+workspace set (`render workspace set tea-d9h42fcvikkc73b3pb8g --confirm`, once).
+- Snapshot repo: `~/Code/netcode-feasibility-deploy` (override with `DEPLOY_DIR`).
+- Pushes to: `git@github.com:jclarkfolklore/netcode-feasibility-spike.git` (override with `DEPLOY_REMOTE`).
+- The snapshot is a *mini-monorepo* (`conductor/spikes/netcode-feasibility/` + `src/game/`) because
+  the spike imports `../../../src/game` read-only — `render.yaml`'s `rootDir` scopes the build to
+  the spike folder. Verified to build standalone (`npm ci && npm run build`).
 
-One-time setup (needs the Render account — interactive; the CLI must be logged in):
-1. `render workspace set`
-2. Create the web service from `render.yaml` — Render dashboard → **New → Blueprint**
-   (point it at the git source; see the deploy-source note below) — or `render services create`.
-3. Record the service id so the script is reusable:
-   `echo srv-XXXXXXXX > .render-service` (gitignored) or `export RENDER_SERVICE_ID=srv-XXXXXXXX`.
-Then `npm run deploy` builds and deploys, streaming logs.
+### One-time Render setup (interactive, your account)
+1. **Render dashboard → New → Blueprint**, pick `jclarkfolklore/netcode-feasibility-spike`
+   (authorize GitHub access to it if prompted). `render.yaml` is at the repo root.
+2. Render reads the Blueprint (runtime node, `rootDir: conductor/spikes/netcode-feasibility`,
+   `buildCommand: npm install && npm run build`, `startCommand: npm run start`,
+   `healthCheckPath: /api/health`) and creates the web service. Deploy.
+3. Auto-deploy is OFF, so pushes don't build. Deploy deliberately with `npm run deploy` (pushes +
+   triggers a build), or `render deploys create srv-d9hs8vd7vvec73f2e6s0 --wait`. Watch:
+   `render deploys list srv-d9hs8vd7vvec73f2e6s0`.
 
-### Blockers cleared (were flagged in the reviews)
-- **`phaser` is now vendored into this package** (pinned `4.1.0`, aliased locally in
-  `vite.config.ts`) — the build no longer reaches into the monorepo root's `node_modules`.
-- **`tsx` moved to `dependencies`** so `npm run start` (`tsx server/index.ts`) survives a
-  production install.
+### Blockers cleared
+- **`phaser` vendored into this package** (pinned `4.1.0`, aliased locally in `vite.config.ts`).
+- **`tsx` in `dependencies`** so `npm run start` survives a production install.
+- **Cold-start banner** (`ServerWakeBanner`) for the free-tier ~15min idle spin-down.
 
-### ⚠ Deploy-source note (important)
-This spike imports `../../../src/game/*` read-only (the netcode scenes subclass the REAL
-`FightScene`), so it is **not** fully standalone. Whatever git source Render builds from must
-contain **both** this folder AND the repo's `src/game`. Because this folder has its own git repo
-and is gitignored by the monorepo, confirm before the first deploy that the deploy source actually
-includes both (e.g. deploy the monorepo with this folder un-ignored on the deploy branch, or vendor
-the needed `src/game` files). `render.yaml`'s `rootDir` + full-repo clone assumes the former.
+### Still TODO for a polished public deploy (not blocking)
+- TURN for real-WAN WebRTC; single-instance in-memory room registry (fine for a friends/LAN test).
 
-### Still TODO for a polished public deploy (not blocking a functional deploy)
-- A cold-start "waking server…" UI for the free-tier ~15min idle spin-down (this doc's original ask).
-- TURN for real-WAN WebRTC; single-instance in-memory room registry (fine for a friends test).
+### Why not Docker-image-to-Render?
+That path (build image locally → push to a registry → `render deploys create --image`) also works
+and needs no GitHub, but requires a working Docker daemon + a container registry (Docker Hub). Given
+Docker Desktop wasn't starting on this machine, the git-snapshot path above is simpler and Docker-free.
 
 ---
 

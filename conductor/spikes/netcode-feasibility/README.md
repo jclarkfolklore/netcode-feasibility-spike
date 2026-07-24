@@ -1,5 +1,7 @@
 # Spike: netcode feasibility
 
+**▶ Live:** https://netcode-feasibility-spike.onrender.com/ · **Repo:** https://github.com/jclarkfolklore/netcode-feasibility-spike
+
 **Status:** open
 **Opened:** 2026-07-23
 **Concluded:** —

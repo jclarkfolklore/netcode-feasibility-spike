@@ -1,42 +1,69 @@
 #!/usr/bin/env bash
-# Reusable Render deploy for the netcode-feasibility spike.
-#   npm run deploy            # build + trigger a Render deploy (streams logs, waits)
+# Deploy the netcode-feasibility spike to Render — spike-only, driven from this
+# machine, no Docker. It maintains a small STANDALONE snapshot repo (this spike
+# + src/game + render.yaml), commits the latest, and pushes. Render (autoDeploy)
+# builds from that repo. Re-run any time you change the spike or src/game.
 #
-# One-time setup (needs your Render account — interactive):
-#   1) render workspace set
-#   2) Create the web service from render.yaml:
-#        Render dashboard → New → Blueprint → point at this repo's render.yaml
-#        (or `render services create`). rootDir is conductor/spikes/netcode-feasibility.
-#   3) Record the service id so this script is reusable:
-#        echo srv-XXXXXXXX > .render-service      # (gitignored)
-#        # or:  export RENDER_SERVICE_ID=srv-XXXXXXXX
+#   npm run deploy
 #
-# NOTE on the deploy source: this spike imports ../../../src/game read-only, so
-# whatever git source Render builds from MUST contain both this folder AND the
-# repo's src/game. See DEPLOY.md.
+# Config (env overrides):
+#   DEPLOY_DIR     where the snapshot repo lives (default ~/Code/netcode-feasibility-deploy)
+#   DEPLOY_REMOTE  git remote to push to (default the jclarkfolklore spike repo)
 set -euo pipefail
-cd "$(dirname "$0")/.."
+SPIKE="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$SPIKE/../../.." && pwd)"
+DEPLOY_DIR="${DEPLOY_DIR:-$HOME/Code/netcode-feasibility-deploy}"
+DEPLOY_REMOTE="${DEPLOY_REMOTE:-git@github.com:jclarkfolklore/netcode-feasibility-spike.git}"
 
-echo "→ Building (tsc + vite) ..."
-npm run build
+echo "→ Sanity build (fail fast before pushing a broken tree) ..."
+( cd "$SPIKE" && npm run build >/dev/null )
 
-SERVICE="${RENDER_SERVICE_ID:-}"
-if [ -z "$SERVICE" ] && [ -f .render-service ]; then
-  SERVICE="$(tr -d '[:space:]' < .render-service)"
+echo "→ Syncing snapshot to $DEPLOY_DIR ..."
+mkdir -p "$DEPLOY_DIR/conductor/spikes/netcode-feasibility" "$DEPLOY_DIR/src"
+rsync -a --delete \
+  --exclude node_modules --exclude dist --exclude .git \
+  --exclude .ux-shots --exclude .render-service \
+  "$SPIKE/" "$DEPLOY_DIR/conductor/spikes/netcode-feasibility/"
+rsync -a --delete "$REPO_ROOT/src/game/" "$DEPLOY_DIR/src/game/"
+cp "$SPIKE/render.yaml" "$DEPLOY_DIR/render.yaml"
+cp "$SPIKE/scripts/deploy-README.md" "$DEPLOY_DIR/README.md"   # root README (project + context)
+printf 'node_modules/\ndist/\n.render-service\n.DS_Store\n' > "$DEPLOY_DIR/.gitignore"
+
+cd "$DEPLOY_DIR"
+[ -d .git ] || git init -q -b main
+git remote get-url origin >/dev/null 2>&1 || git remote add origin "$DEPLOY_REMOTE"
+git add -A
+if git diff --cached --quiet; then
+  echo "  (no changes since last deploy)"
+else
+  git commit -q -m "spike deploy snapshot ($(date -u +%Y-%m-%dT%H:%MZ))"
 fi
 
-if [ -z "$SERVICE" ]; then
-  cat <<'EOF'
+echo "→ Pushing to $DEPLOY_REMOTE ..."
+git push -u origin main
 
-✓ Build OK — but no Render service is configured yet, so nothing was deployed.
-  One-time setup (see the header of scripts/deploy.sh):
-    1) render workspace set
-    2) create the service from render.yaml (dashboard Blueprint or `render services create`)
-    3) echo srv-XXXXXXXX > .render-service   (or export RENDER_SERVICE_ID=srv-XXXXXXXX)
-  Then re-run:  npm run deploy
+# Auto-deploy-on-push is intentionally OFF. Trigger the build EXPLICITLY here so
+# `npm run deploy` is a deliberate deploy, while a plain push never builds.
+SERVICE="${RENDER_SERVICE_ID:-}"
+[ -z "$SERVICE" ] && [ -f "$SPIKE/.render-service" ] && SERVICE="$(tr -d '[:space:]' < "$SPIKE/.render-service")"
+
+if [ -z "$SERVICE" ]; then
+  echo ""
+  echo "✓ Pushed. No Render service id configured, so NO build was triggered."
+  echo "  Save it once:  echo srv-XXXXXXXX > .render-service   (or export RENDER_SERVICE_ID)"
+  echo "  Then re-run, or trigger manually:  render deploys create <srv> --wait"
+  exit 0
+fi
+
+echo "→ Triggering Render deploy for ${SERVICE} (auto-deploy is off) ..."
+if ! render deploys create "${SERVICE}" --confirm --wait --output text 2>&1; then
+  cat <<EOF
+
+⚠ Could not trigger the deploy via CLI (workspace not set, or auth). Fixes:
+    render workspace set tea-d9h42fcvikkc73b3pb8g --confirm
+    render deploys create ${SERVICE} --wait
+  (The push succeeded — the repo is updated; only the build wasn't triggered.)
 EOF
   exit 1
 fi
-
-echo "→ Deploying to Render service ${SERVICE} ..."
-render deploys create "${SERVICE}" --confirm --wait --output text
+echo "✓ Deploy triggered + completed."
