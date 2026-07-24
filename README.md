@@ -11,7 +11,8 @@ A self-contained, deployable **measurement instrument** that answers one questio
 
 This repo is a purpose-made, standalone slice of the parent project. It is **auto-generated** from
 the spike inside the monorepo (`conductor/spikes/netcode-feasibility/`) — do not hand-edit here;
-edit in the monorepo and run `npm run deploy` to re-sync + push (Render then auto-builds).
+edit in the monorepo and run `npm run deploy` to re-sync, push, and trigger a build.
+**Auto-deploy on push is off** — deploys are explicit, so a push alone never rebuilds.
 
 ---
 
