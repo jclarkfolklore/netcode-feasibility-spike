@@ -507,6 +507,15 @@ async function runPairedGuest(
   const rttSamplesMs: number[] = [];
   const pendingPings = new Map<number, number>();
   const stalenessSamples: number[] = [];
+  // Client-side-prediction lever (008.8): the felt lag your OWN character WOULD
+  // have if the guest echoed its input locally on the next frame instead of
+  // waiting for the round trip. Measured as input-send → next committed rAF, so
+  // it is RTT-INDEPENDENT by construction — the whole point of prediction. The
+  // opponent still lags by RTT + interp (that part prediction can't fix; it
+  // needs reconciliation). Reported beside the round-trip number as the "with
+  // prediction, your own input feels like THIS" ceiling.
+  const predictedSamplesMs: number[] = [];
+  let pendingPredictAt: number | null = null;
   let pingSeq = 0;
   let inputSeq = 0;
   let pressesSent = 0;
@@ -686,6 +695,13 @@ async function runPairedGuest(
         if (settled) return;
         framesExecuted += 1;
         const now = performance.now();
+        // Prediction ceiling: a press queued on the previous frame would, under
+        // client-side prediction, be reflected on THIS committed frame. Record
+        // input→next-commit — independent of the wire.
+        if (pendingPredictAt !== null) {
+          predictedSamplesMs.push(now - pendingPredictAt);
+          pendingPredictAt = null;
+        }
         // Convert our own clock into a host-clock estimate for buffer sampling /
         // staleness. Felt-lag attribution (below) stays in guest-clock — both
         // `tSent` and `now` are the guest's own now(), so the subtraction is
@@ -725,6 +741,9 @@ async function runPairedGuest(
             lagTracker.recordSent(msg.seq, tSent);
             pressesSent += 1;
             transport.send(msg);
+            // Arm the prediction-ceiling sample: the NEXT committed frame is
+            // when a locally-predicted echo of this press would become visible.
+            pendingPredictAt = tSent;
           }
 
           // Stop condition keyed on the HOST's own real tick number (never
@@ -760,6 +779,11 @@ async function runPairedGuest(
     const feltLagMs = computeDistribution(lagTracker.samplesMs);
     const rttMs = computeDistribution(rttSamplesMs);
     const stalenessMs = computeDistribution(stalenessSamples);
+    // Prediction-lever projection (008.8) — kept OUT of the scored sub-scores on
+    // purpose: the composite must reflect the CURRENT (no-prediction) design, so
+    // this is reported as a "what prediction would buy" figure, not folded in.
+    const predictedLocalLagMs = computeDistribution(predictedSamplesMs);
+    const predictionFrames = predictedSamplesMs.length ? msToFrames(predictedLocalLagMs.p50) : 0;
     const p95Ms = feltLagMs.p95;
     const band = frameBand(p95Ms);
     const warnNote =
@@ -804,13 +828,23 @@ async function runPairedGuest(
         feltLagFrames: { p50: msToFrames(feltLagMs.p50), p95: msToFrames(feltLagMs.p95), p99: msToFrames(feltLagMs.p99) },
         realRttMs: rttMs,
         stalenessMs,
+        // Prediction lever: RTT-independent local-echo latency (008.8).
+        predictedLocalLagMs,
+        predictedLocalFrames: {
+          p50: msToFrames(predictedLocalLagMs.p50),
+          p95: msToFrames(predictedLocalLagMs.p95),
+        },
+        predictedSampleCount: predictedSamplesMs.length,
         ...buildDiag(),
       },
       subScores,
       verdict:
         `${warnNote}GUEST side of a REAL two-client run over a REAL ${transport.kind} transport (topology=${topology}). Felt input lag (p50/p95/p99): ${feltLagMs.p50.toFixed(1)}/${feltLagMs.p95.toFixed(1)}/${feltLagMs.p99.toFixed(1)}ms ` +
         `(${msToFrames(feltLagMs.p50).toFixed(2)}/${msToFrames(feltLagMs.p95).toFixed(2)}/${msToFrames(feltLagMs.p99).toFixed(2)} frames). ` +
-        `Decomposed: real transport RTT p50/p95=${rttMs.p50.toFixed(1)}/${rttMs.p95.toFixed(1)}ms + ${config.guestInterpDelayMs}ms interp buffer + app time. Band: ${band}.`,
+        `Decomposed: real transport RTT p50/p95=${rttMs.p50.toFixed(1)}/${rttMs.p95.toFixed(1)}ms + ${config.guestInterpDelayMs}ms interp buffer + app time. Band: ${band}.` +
+        (predictedSamplesMs.length
+          ? ` LEVER — client-side prediction: your OWN character's input would feel ~${predictedLocalLagMs.p50.toFixed(1)}ms (${predictionFrames.toFixed(2)} frames), RTT-INDEPENDENT — vs ${msToFrames(feltLagMs.p50).toFixed(1)} frames round-trip. Prediction fixes your own responsiveness; the opponent still lags by RTT+interp and needs reconciliation.`
+          : ""),
       measuredCaveat:
         `REAL cross-client round trip over ${transport.kind} (NOT a simulated/injected network) + real app-processing latency + real interpolation buffer, measured on the guest's own single clock (input-event timestamp -> lastInputSeq attribution -> committed-rAF delta) — comparative, still NOT hardware glass-to-glass (that needs LDAT/photodiode). This automated pass scripts the guest's button press as a synthetic wire message (identical shape/code path to a real keyboard JustDown edge) rather than a real DOM key event; the interactive page's "Live end-to-end loop" section drives real DOM keys over this same real transport. Topology: ${topology}.`,
     };
