@@ -53,6 +53,16 @@ export class InterpolationBuffer {
     return this.renderedTick;
   }
 
+  /** Oldest/newest `hostTime` currently buffered (0 if empty) — diagnostics only:
+   * lets the guest see whether its interp target window falls inside the buffered
+   * span at all (a starved sampler vs a mis-estimated clock). */
+  get oldestHostTime(): number {
+    return this.buf.length ? this.buf[0].hostTime : 0;
+  }
+  get newestHostTime(): number {
+    return this.buf.length ? this.buf[this.buf.length - 1].hostTime : 0;
+  }
+
   /**
    * The stale-opponent visualization (F7): how far behind the host's clock
    * the currently-rendered snapshot is. In this loopback demo host and guest

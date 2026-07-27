@@ -403,13 +403,18 @@ function offscreenContainer(): { container: HTMLDivElement; parent: HTMLDivEleme
   return { container, parent };
 }
 
-function failedResult(topology: Topology, mode: string, reason: string): ExperienceResult {
+function failedResult(
+  topology: Topology,
+  mode: string,
+  reason: string,
+  extra?: Record<string, unknown>,
+): ExperienceResult {
   return {
     experienceId: E2E_EXPERIENCE_ID,
     status: "failed",
     topology,
     lossMode: "none",
-    raw: { mode, reason },
+    raw: { mode, reason, ...(extra ?? {}) },
     subScores: [],
     verdict: `Failed before completion (${mode}): ${reason}`,
     measuredCaveat: "n/a — run did not complete",
@@ -529,13 +534,57 @@ async function runPairedGuest(
   // loopback (shared clock) this is ~0, so the solo path is unaffected.
   let clockOffset: number | null = null;
 
+  // Diagnostics (Option B): the guest result is the only thing that reaches the
+  // host (and thus a Playwright reader), so instead of relying on the remote
+  // machine's devtools we ship a `diag` bag back over the companion channel to
+  // pinpoint WHY a paired run observed 0 ticks (throttled rAF vs starved sampler
+  // vs out-of-order buffer vs clock skew). Cheap counters, no behavior change.
+  let snapshotsReceived = 0;
+  let framesExecuted = 0; // rAF `frame()` calls — near-0 ⇒ the tab was throttled
+  let sampleNullCount = 0; // sampleAt returned null (nothing old enough / buffer wedged)
+  let sampleSameTickCount = 0; // returned a snapshot, but not a NEW tick
+  let bufferMaxSize = 0;
+  let firstSnapshotHostTime: number | null = null;
+  let firstSnapshotArrival: number | null = null;
+  let outOfOrderArrivals = 0; // snapshots whose tick <= the previous arrival's tick
+  let lastArrivedTick = -1;
+  let lastTargetTime = 0;
+  let lastBufOldestHostTime = 0;
+  let lastBufNewestHostTime = 0;
+  const buildDiag = (): Record<string, unknown> => ({
+    diag: {
+      snapshotsReceived,
+      framesExecuted,
+      ticksObserved,
+      sampleNullCount,
+      sampleSameTickCount,
+      bufferMaxSize,
+      clockOffsetMs: clockOffset,
+      firstSnapshotHostTime,
+      firstSnapshotArrival,
+      outOfOrderArrivals,
+      lastTargetTime,
+      lastBufOldestHostTime,
+      lastBufNewestHostTime,
+      interpDelayMs: config.guestInterpDelayMs,
+    },
+  });
+
   try {
     transport.onMessage((msg) => {
       if (msg.t === "snapshot") {
         peerSeen = true;
+        snapshotsReceived += 1;
+        if (firstSnapshotHostTime === null) {
+          firstSnapshotHostTime = msg.hostTime;
+          firstSnapshotArrival = performance.now();
+        }
+        if (msg.tick <= lastArrivedTick) outOfOrderArrivals += 1;
+        lastArrivedTick = msg.tick;
         const off = msg.hostTime - performance.now();
         clockOffset = clockOffset === null ? off : Math.max(clockOffset, off);
         interp.push(msg);
+        if (interp.size > bufferMaxSize) bufferMaxSize = interp.size;
         return;
       }
       if (msg.t === "pong") {
@@ -635,13 +684,19 @@ async function runPairedGuest(
 
       const frame = () => {
         if (settled) return;
+        framesExecuted += 1;
         const now = performance.now();
         // Convert our own clock into a host-clock estimate for buffer sampling /
         // staleness. Felt-lag attribution (below) stays in guest-clock — both
         // `tSent` and `now` are the guest's own now(), so the subtraction is
         // already epoch-safe; only the interp gating needs the host domain.
         const hostNow = clockOffset === null ? now : now + clockOffset;
+        lastTargetTime = hostNow - config.guestInterpDelayMs;
+        lastBufOldestHostTime = interp.oldestHostTime;
+        lastBufNewestHostTime = interp.newestHostTime;
         const sample = interp.sampleAt(hostNow, config.guestInterpDelayMs);
+        if (!sample) sampleNullCount += 1;
+        else if (sample.tick === lastProcessedTick) sampleSameTickCount += 1;
         if (sample && sample.tick !== lastProcessedTick) {
           lastProcessedTick = sample.tick;
           lastAdvanceMs = now;
@@ -698,6 +753,7 @@ async function runPairedGuest(
         topology,
         "paired-guest",
         `0 input samples attributed over ${ticksObserved} observed ticks / ${pressesSent} scripted presses — the guest never saw a completed round trip (peer not driving, clock-offset skew, or the tab was backgrounded and rAF throttled). This is a FAILED measurement; refusing to report 0.0ms/good.`,
+        buildDiag(),
       );
     }
 
@@ -748,6 +804,7 @@ async function runPairedGuest(
         feltLagFrames: { p50: msToFrames(feltLagMs.p50), p95: msToFrames(feltLagMs.p95), p99: msToFrames(feltLagMs.p99) },
         realRttMs: rttMs,
         stalenessMs,
+        ...buildDiag(),
       },
       subScores,
       verdict:
@@ -758,7 +815,12 @@ async function runPairedGuest(
         `REAL cross-client round trip over ${transport.kind} (NOT a simulated/injected network) + real app-processing latency + real interpolation buffer, measured on the guest's own single clock (input-event timestamp -> lastInputSeq attribution -> committed-rAF delta) — comparative, still NOT hardware glass-to-glass (that needs LDAT/photodiode). This automated pass scripts the guest's button press as a synthetic wire message (identical shape/code path to a real keyboard JustDown edge) rather than a real DOM key event; the interactive page's "Live end-to-end loop" section drives real DOM keys over this same real transport. Topology: ${topology}.`,
     };
   } catch (err) {
-    return failedResult(topology, "paired-guest", err instanceof Error ? err.message : String(err));
+    return failedResult(
+      topology,
+      "paired-guest",
+      err instanceof Error ? err.message : String(err),
+      buildDiag(),
+    );
   } finally {
     if (pingTimer) clearInterval(pingTimer);
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisibility);
