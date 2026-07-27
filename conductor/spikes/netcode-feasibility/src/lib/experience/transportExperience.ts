@@ -270,7 +270,7 @@ export function computeSubScores(cells: CellResult[], config: TransportSweepConf
     value0to100: latencyBand === "good" ? 95 : latencyBand === "acceptable" ? 65 : 20,
     band: latencyBand,
     weight: 1,
-    rationale: `p50 RTT (peer-echo) of ${repCell.transport}@${repCell.rateHz}Hz/${repCell.payloadBytes}B, no loss: ${latencyValue.toFixed(1)}ms. Bands per contracts.md §5 (good<30/acceptable<60/bad>100ms).`,
+    rationale: `p50 RTT (peer-echo) of ${repCell.transport}@${repCell.rateHz}Hz/${repCell.payloadBytes}B, no loss: ${latencyValue.toFixed(1)}ms. Bands (research.md §D): good≤30 / acceptable≤60 / bad>60ms — the 60–100ms zone the source table leaves open is resolved conservatively to bad.`,
   };
 
   const jitterValue = repCell.jitterMs;
@@ -291,11 +291,13 @@ export function computeSubScores(cells: CellResult[], config: TransportSweepConf
       key: "loss-resilience",
       value0to100: 50,
       band: "acceptable",
-      weight: 1,
+      // weight 0 = shown but NOT folded into the composite (F2): there is no real
+      // loss measurement here, so a "50" must not drag the mean up or down.
+      weight: 0,
       rationale:
         "No link-loss comparison cell available in this run (payload-drop is app-layer and not a " +
-        "valid HOL basis per F1) — loss-resilience is unscored/neutral here. Run a link-loss sweep " +
-        "with both `ws` and `webrtc-unreliable` selected for a real number.",
+        "valid HOL basis per F1) — loss-resilience is UNSCORED here (weight 0, excluded from the " +
+        "composite). Run a link-loss sweep with both `ws` and `webrtc-unreliable` selected for a real number.",
     };
   } else {
     const wsP99 = Math.max(...wsUnderLoss.map((c) => c.rttMs.p99));

@@ -805,7 +805,7 @@ async function runPairedGuest(
         value0to100: latencyBand === "good" ? 95 : latencyBand === "acceptable" ? 65 : 20,
         band: latencyBand,
         weight: 1,
-        rationale: `Real transport RTT (peer-echo ping/pong, contracts.md §1), measured on the guest's own clock: p50=${rttMs.p50.toFixed(1)}ms / p95=${rttMs.p95.toFixed(1)}ms / p99=${rttMs.p99.toFixed(1)}ms over ${rttMs.count} samples via ${transport.kind}. This decomposes the felt-lag total: felt lag ≈ real RTT + interp buffer (${config.guestInterpDelayMs}ms) + app processing time. Bands per contracts.md §5 (good<30/acceptable<60/bad>100ms).`,
+        rationale: `Real transport RTT (peer-echo ping/pong, contracts.md §1), measured on the guest's own clock: p50=${rttMs.p50.toFixed(1)}ms / p95=${rttMs.p95.toFixed(1)}ms / p99=${rttMs.p99.toFixed(1)}ms over ${rttMs.count} samples via ${transport.kind}. This decomposes the felt-lag total: felt lag ≈ real RTT + interp buffer (${config.guestInterpDelayMs}ms) + app processing time. Bands (research.md §D): good≤30 / acceptable≤60 / bad>60ms — the 60–100ms zone the source table leaves open is resolved conservatively to bad.`,
       },
     ];
 

@@ -34,6 +34,28 @@ describe("scoreSubScores", () => {
     expect(score).toBeCloseTo(50, 5);
   });
 
+  it("excludes a weight-0 sub-score from the composite (shown but not scored)", () => {
+    // A neutral/informational placeholder (e.g. unscored loss-resilience) must
+    // NOT drag the mean. weight:0 → contributes nothing; the result equals the
+    // score of the remaining weighted sub-scores alone.
+    const withPlaceholder = scoreSubScores([
+      sub({ value0to100: 100, band: "good", weight: 1 }),
+      sub({ value0to100: 25, band: "acceptable", weight: 1 }),
+      sub({ value0to100: 50, band: "acceptable", weight: 0 }),
+    ]);
+    const without = scoreSubScores([
+      sub({ value0to100: 100, band: "good", weight: 1 }),
+      sub({ value0to100: 25, band: "acceptable", weight: 1 }),
+    ]);
+    expect(withPlaceholder).toBeCloseTo(without!, 5);
+  });
+
+  it("returns null when every sub-score is weight-0 (nothing to score)", () => {
+    expect(
+      scoreSubScores([sub({ value0to100: 50, band: "acceptable", weight: 0 })]),
+    ).toBeNull();
+  });
+
   it("min-gates the composite when any sub-score is bad", () => {
     const score = scoreSubScores([
       sub({ value0to100: 95, band: "good" }),

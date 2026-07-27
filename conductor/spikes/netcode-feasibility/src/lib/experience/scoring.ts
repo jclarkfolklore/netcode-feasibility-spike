@@ -18,9 +18,12 @@ const EPSILON = 0.01; // avoid ln(0) for a genuine 0 sub-score
 export function scoreSubScores(subScores: SubScore[]): number | null {
   if (subScores.length === 0) return null;
 
-  const totalWeight = subScores.reduce((sum, s) => sum + (s.weight || 1), 0);
+  // `?? 1` (not `|| 1`): an authored `weight: 0` means "show but DON'T score"
+  // (e.g. an unscored/neutral placeholder) — `|| 1` silently gave it full weight.
+  const totalWeight = subScores.reduce((sum, s) => sum + (s.weight ?? 1), 0);
+  if (totalWeight === 0) return null; // every sub-score was weight-0 (informational only)
   const weightedLogSum = subScores.reduce(
-    (sum, s) => sum + (s.weight || 1) * Math.log(Math.max(s.value0to100, EPSILON)),
+    (sum, s) => sum + (s.weight ?? 1) * Math.log(Math.max(s.value0to100, EPSILON)),
     0,
   );
   const weightedGeoMean = Math.exp(weightedLogSum / totalWeight);

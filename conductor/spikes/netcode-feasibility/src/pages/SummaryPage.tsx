@@ -208,8 +208,13 @@ export function SummaryPage() {
   );
 
   const { feasibilityResults, determinismResult } = useMemo(() => splitAxes(resultList), [resultList]);
+  // Cross-network verdicts require cross-network data (contracts.md §6): a
+  // solo/loopback run can't substantiate a "host-authoritative feasibility"
+  // claim, so those results are excluded from the composite (they'd otherwise
+  // blend a same-process 0ms number into a claim about a real wire). With no
+  // cross-network results, the composite is null → "run a paired session."
   const feasibilityAggregate = useMemo(
-    () => aggregateResults(feasibilityResults, weightOverrides),
+    () => aggregateResults(crossNetworkResults(feasibilityResults), weightOverrides),
     [feasibilityResults, weightOverrides],
   );
   const determinismScore = useMemo(
