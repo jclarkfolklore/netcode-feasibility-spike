@@ -61,11 +61,15 @@ export function attachWsRelay(wss: WebSocketServer): RoomRegistry<WebSocket> {
       return;
     }
 
-    const role = rooms.join(room, requestedRole, socket);
-    if (!role) {
-      log("ws.reject", { room, requestedRole, reason: "role-taken" });
-      socket.close(4002, "role already seated in room");
-      return;
+    const { role, evicted } = rooms.join(room, requestedRole, socket);
+    if (evicted) {
+      // Last-writer-wins: a fresh connection for a role that was already seated
+      // (a reload/reopen) bumps the stale socket instead of rejecting the new
+      // one. Closing with 4003 tells the old client it was superseded (its own
+      // reconnect logic can stand down); the identity-guarded `leave` in the
+      // close handler ensures this bump can't tear down the seat we just took.
+      log("ws.replaced", { room, role });
+      evicted.close(4003, "replaced by a newer connection");
     }
     log("ws.connect", { room, role, paired: rooms.bothPresent(room) });
     if (rooms.bothPresent(room)) log("ws.paired", { room });
@@ -97,7 +101,12 @@ export function attachWsRelay(wss: WebSocketServer): RoomRegistry<WebSocket> {
     });
 
     socket.on("close", () => {
-      rooms.leave(room, role);
+      // Identity-guarded: if this socket was already bumped (last-writer-wins),
+      // `leave` is a no-op and returns false — do NOT notify the peer, or a
+      // reload would spuriously tear down the freshly-seated newcomer / kick
+      // the other side. Only a genuine current-seat close notifies the peer.
+      const vacated = rooms.leave(room, role, socket);
+      if (!vacated) return;
       log("ws.disconnect", { room, role });
       const peer = rooms.peerOf(room, role);
       peer?.close(4000, "peer left");

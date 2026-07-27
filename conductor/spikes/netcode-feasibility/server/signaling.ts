@@ -32,16 +32,13 @@ export function attachSignaling(wss: WebSocketServer): void {
       return;
     }
 
-    const role = rooms.join(room, requestedRole, socket);
-    if (!role) {
-      log("signal.reject", { room, requestedRole, reason: "role-taken" });
-      send(socket, {
-        t: "error",
-        code: "role-taken",
-        message: "role already seated in room",
-      });
-      socket.close(4002, "role already seated in room");
-      return;
+    const { role, evicted } = rooms.join(room, requestedRole, socket);
+    if (evicted) {
+      // Last-writer-wins (see rooms.ts): a reconnecting signaling socket bumps
+      // its stale predecessor rather than being rejected.
+      log("signal.replaced", { room, role });
+      send(evicted, { t: "error", code: "replaced", message: "replaced by a newer connection" });
+      evicted.close(4003, "replaced by a newer connection");
     }
     roleOf.set(socket, { room, role });
 
@@ -103,7 +100,9 @@ export function attachSignaling(wss: WebSocketServer): void {
     });
 
     socket.on("close", () => {
-      rooms.leave(room, role);
+      // Identity-guarded (see rooms.ts): a bumped predecessor's late close must
+      // not evict the newcomer's seat nor fire a spurious peer-left.
+      if (!rooms.leave(room, role, socket)) return;
       log("signal.leave", { room, role });
       const other = peer();
       if (other) send(other, { t: "peer-left" });

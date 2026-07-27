@@ -20,7 +20,10 @@ export const COMPANION_RUN_TIMEOUT_MS = 180_000;
 export function startCompanion(
   transport: Transport,
   experiences: Experience[],
-  onRunStart?: (experienceId: string) => void,
+  /** Reports what the host is currently driving this guest to run — an
+   * experienceId while a companion run is in flight, `null` when idle. Lets the
+   * guest UI show "host is running X" instead of leaving the operator blind. */
+  onActivity?: (experienceId: string | null) => void,
 ): () => void {
   const byId = new Map(experiences.map((e) => [e.id, e]));
   let currentAbort: AbortController | null = null;
@@ -32,19 +35,19 @@ export function startCompanion(
 
     if (msg.action === "abort") {
       currentAbort?.abort("remote-abort");
+      onActivity?.(null);
       return;
     }
 
     currentAbort = new AbortController();
-    onRunStart?.(msg.experienceId);
+    onActivity?.(msg.experienceId);
     void runExperience(experience, msg.config, {
       signal: currentAbort.signal,
       timeoutMs: COMPANION_RUN_TIMEOUT_MS,
-    }).then(
-      (result) => {
-        transport.send({ t: "result", experienceId: experience.id, result });
-      },
-    );
+    }).then((result) => {
+      transport.send({ t: "result", experienceId: experience.id, result });
+      onActivity?.(null);
+    });
   };
 
   transport.onMessage(handleMessage);

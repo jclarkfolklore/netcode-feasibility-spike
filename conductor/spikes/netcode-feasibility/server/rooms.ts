@@ -17,20 +17,29 @@ export class RoomRegistry<Peer> {
   private rooms = new Map<string, Partial<Record<Role, Peer>>>();
 
   /**
-   * Attempt to seat `peer` into `roomId` under `requestedRole`.
-   * Returns the assigned role, or `null` if the room already has that role
-   * seated (rejected — caller should close the connection with an error).
+   * Seat `peer` into `roomId` under `requestedRole` with LAST-WRITER-WINS:
+   * the newest connection always takes the seat, and any peer previously
+   * seated in that role is returned as `evicted` so the caller can close it.
+   *
+   * Rationale (spike reliability): the old "first-come, reject the newcomer"
+   * rule made reload/reopen fragile — a reloading tab's fresh socket was
+   * rejected (`role-taken`) until the stale socket's close finally propagated,
+   * so a STALE/cached tab kept the seat while the fresh one spun in a
+   * reject→reconnect loop. Bumping instead means "the tab you just opened is
+   * the one that's connected", every time. The identity-guarded `leave` below
+   * ensures the evicted socket's later close event can't tear down the seat the
+   * newcomer now holds.
    */
-  join(roomId: string, requestedRole: Role | undefined, peer: Peer): Role | null {
+  join(roomId: string, requestedRole: Role | undefined, peer: Peer): { role: Role; evicted?: Peer } {
     let room = this.rooms.get(roomId);
     if (!room) {
       room = {};
       this.rooms.set(roomId, room);
     }
     const role: Role = requestedRole ?? (room.host ? "guest" : "host");
-    if (room[role]) return null; // seat taken — reject, don't silently bump
+    const evicted = room[role];
     room[role] = peer;
-    return role;
+    return evicted && evicted !== peer ? { role, evicted } : { role };
   }
 
   /** The other peer in the room, if present and seated. */
@@ -46,11 +55,20 @@ export class RoomRegistry<Peer> {
     return !!room && !!room.host && !!room.guest;
   }
 
-  leave(roomId: string, role: Role): void {
+  /**
+   * Vacate `role` in `roomId` — but ONLY if `peer` is still the seated socket.
+   * A bumped (last-writer-wins) socket fires its `close` event AFTER the
+   * newcomer has taken the seat; without this identity guard that late close
+   * would evict the newcomer. Returns whether a seat was actually vacated, so
+   * the caller can skip peer-notification for a stale bumped socket.
+   */
+  leave(roomId: string, role: Role, peer?: Peer): boolean {
     const room = this.rooms.get(roomId);
-    if (!room) return;
+    if (!room) return false;
+    if (peer !== undefined && room[role] !== peer) return false; // already replaced — not ours to vacate
     delete room[role];
     if (!room.host && !room.guest) this.rooms.delete(roomId);
+    return true;
   }
 
   size(): number {

@@ -23,8 +23,15 @@ function shortLabel(id: string, title: string): string {
 }
 
 export function Nav({ route, onNavigate }: Props) {
-  const { experiences, runState, session, runAllExperiences, runAllInProgress, abortAll } =
-    useRunStore();
+  const {
+    experiences,
+    runState,
+    session,
+    companionHealth,
+    runAllExperiences,
+    runAllInProgress,
+    abortAll,
+  } = useRunStore();
 
   // Single source of truth (RunStore.runState); "completed" maps to the "done"
   // dot class. Sidebar dots, Summary scoreboard, and page chips cannot disagree.
@@ -32,6 +39,15 @@ export function Nav({ route, onNavigate }: Props) {
     const s = runState(id);
     return s === "completed" ? "done" : s;
   };
+
+  // What's running RIGHT NOW, for the connection panel: a guest learns it from
+  // the companion channel (the host drove it); a host learns it from its own
+  // run-state. Either way, one line the operator can watch instead of guessing.
+  const activeRunId =
+    companionHealth.activity ?? experiences.find((e) => runState(e.id) === "running")?.id ?? null;
+  const activeRunLabel = activeRunId
+    ? shortLabel(activeRunId, experiences.find((e) => e.id === activeRunId)?.title ?? activeRunId)
+    : null;
 
   return (
     <nav className="app-nav" data-testid="app-nav">
@@ -126,6 +142,43 @@ export function Nav({ route, onNavigate }: Props) {
             <span className={`session-badge-val topo-${session.topology}`}>{session.topology}</span>
           </span>
         </div>
+
+        {session.room && (
+          <div className="conn-panel" data-testid="companion-conn">
+            <div className="conn-panel-title" data-testid="companion-conn-title">
+              connection
+            </div>
+            <div className="conn-row" data-testid="companion-conn-link">
+              <span className="conn-key">link</span>
+              <span className="conn-val">
+                <span className={`conn-dot conn-dot-${companionHealth.socketState}`} aria-hidden="true" />
+                {companionHealth.socketState}
+              </span>
+            </div>
+            <div className="conn-row" data-testid="companion-conn-peer">
+              <span className="conn-key">peer</span>
+              <span className="conn-val">
+                <span
+                  className={`conn-dot conn-dot-${companionHealth.peerPresent ? "present" : "absent"}`}
+                  aria-hidden="true"
+                />
+                {companionHealth.peerPresent ? "present" : "waiting…"}
+              </span>
+            </div>
+            <div className="conn-row" data-testid="companion-conn-ping">
+              <span className="conn-key">ping</span>
+              <span className="conn-val">
+                {companionHealth.rttMs != null ? `${companionHealth.rttMs} ms` : "—"}
+              </span>
+            </div>
+            <div className="conn-row" data-testid="companion-conn-run">
+              <span className="conn-key">run</span>
+              <span className={`conn-val ${activeRunLabel ? "conn-val-active" : ""}`}>
+                {activeRunLabel ? `▶ ${activeRunLabel}` : "idle"}
+              </span>
+            </div>
+          </div>
+        )}
 
         <div
           className="app-nav-build"

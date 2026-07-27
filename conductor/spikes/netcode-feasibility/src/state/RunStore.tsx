@@ -56,6 +56,22 @@ function persistResults(results: Record<string, ExperienceResult>): void {
  * page's result block must derive from this, never re-compute their own. */
 export type RunState = "idle" | "running" | "completed" | "failed";
 
+/** Live health of the companion control channel, surfaced in the sidebar so the
+ * operator can SEE the connection instead of guessing (socket up? peer actually
+ * there? is a run happening right now?). `peerPresent` is inferred from a fast
+ * heartbeat on the control channel — a recent `pong`/any peer frame proves the
+ * other machine is live, which `socketState: "open"` alone does NOT (that only
+ * proves our own relay socket opened, not that anyone else is in the room). */
+export interface CompanionHealth {
+  socketState: "connecting" | "open" | "closed";
+  /** The other machine is live in this room (heartbeat answered recently). */
+  peerPresent: boolean;
+  /** Round-trip to the peer over the control channel, ms (null until measured). */
+  rttMs: number | null;
+  /** Experience the peer is driving right now (guest view), or null when idle. */
+  activity: string | null;
+}
+
 export interface RunStoreValue {
   experiences: Experience[];
   results: Record<string, ExperienceResult>;
@@ -64,6 +80,8 @@ export interface RunStoreValue {
   session: SessionInfo;
   /** True once the companion control channel has a live peer (contracts.md §6). */
   companionConnected: boolean;
+  /** Live control-channel health for the sidebar connection panel. */
+  companionHealth: CompanionHealth;
   /** Single source of truth for an experiment's run state. */
   runState: (id: string) => RunState;
   runOne: (id: string) => Promise<void>;
@@ -97,8 +115,19 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [runAllInProgress, setRunAllInProgress] = useState(false);
   const [companionConnected, setCompanionConnected] = useState(false);
+  const [companionHealth, setCompanionHealth] = useState<CompanionHealth>({
+    socketState: "closed",
+    peerPresent: false,
+    rttMs: null,
+    activity: null,
+  });
   const abortControllerRef = useRef<AbortController | null>(null);
   const companionTransportRef = useRef<Transport | null>(null);
+  // Read inside runOneInternal (a memoized callback) without stapling the
+  // heartbeat's fast-changing state into its dependency list: the host should
+  // only fire a companion run when a guest is ACTUALLY present, else it hangs
+  // the full COMPANION_RUN_TIMEOUT_MS waiting for a peer that isn't there.
+  const peerPresentRef = useRef(false);
 
   useEffect(() => {
     persistResults(results);
@@ -115,60 +144,116 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
   // is the transport `runOne`/`runAllExperiences` send `run` over and await
   // `result` on, to merge the guest's measurement into the summary.
   useEffect(() => {
+    const resetHealth = () => {
+      peerPresentRef.current = false;
+      setCompanionConnected(false);
+      setCompanionHealth({ socketState: "closed", peerPresent: false, rttMs: null, activity: null });
+    };
     if (!session.room) {
       companionTransportRef.current = null;
-      setCompanionConnected(false);
+      resetHealth();
       return;
     }
 
     // The control channel MUST stay alive so a host-driven run always reaches
-    // the guest — but the free-tier relay drops idle sockets and the server can
-    // spin down/restart, which silently killed it (no reconnect) and made the
-    // guest un-cueable. Fix: reconnect with backoff on any unexpected close, +
-    // a keepalive ping so an idle socket isn't dropped in the first place.
+    // the guest, and the operator must be able to SEE its state. On top of
+    // reconnect-with-backoff (free-tier relay drops idle sockets / spins down),
+    // a ~2.5s heartbeat doubles as (a) keepalive, (b) a real PEER-PRESENCE
+    // signal — a recent pong proves the other machine is live, which a merely
+    // "open" relay socket does not — and (c) a control-channel RTT readout.
+    const HEARTBEAT_MS = 2_500;
+    const PEER_TIMEOUT_MS = 6_000; // no peer frame for this long ⇒ treat as gone
     let cancelled = false;
     let attempt = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    let active: { transport: Transport; stop?: () => void; keepAlive: ReturnType<typeof setInterval>; handled: boolean } | null =
-      null;
+    type Conn = {
+      transport: Transport;
+      stop?: () => void;
+      heartbeat: ReturnType<typeof setInterval>;
+      presenceCheck: ReturnType<typeof setInterval>;
+      pending: Map<number, number>;
+      pingSeq: number;
+      lastPeerSeen: number;
+      handled: boolean;
+    };
+    let active: Conn | null = null;
+    const patch = (p: Partial<CompanionHealth>) => setCompanionHealth((h) => ({ ...h, ...p }));
 
-    const teardownActive = () => {
-      if (!active) return;
-      active.handled = true;
-      clearInterval(active.keepAlive);
-      active.stop?.();
-      active.transport.close();
-      active = null;
+    const teardown = (c: Conn | null) => {
+      if (!c) return;
+      c.handled = true;
+      clearInterval(c.heartbeat);
+      clearInterval(c.presenceCheck);
+      c.stop?.();
     };
 
     const connect = () => {
       if (cancelled) return;
+      patch({ socketState: "connecting" });
       const transport = new WebSocketTransport({ room: `${session.room}::control`, role: session.role });
       companionTransportRef.current = transport;
-      let pingSeq = 0;
-      const keepAlive = setInterval(() => {
+      const conn: Conn = {
+        transport,
+        heartbeat: undefined as unknown as ReturnType<typeof setInterval>,
+        presenceCheck: undefined as unknown as ReturnType<typeof setInterval>,
+        pending: new Map(),
+        pingSeq: 0,
+        lastPeerSeen: 0,
+        handled: false,
+      };
+      active = conn;
+
+      // Any inbound frame proves the peer is live; a matched pong also yields RTT.
+      transport.onMessage((msg) => {
+        if (active !== conn) return;
+        conn.lastPeerSeen = performance.now();
+        if (msg.t === "pong") {
+          const t0 = conn.pending.get(msg.seq);
+          if (t0 !== undefined) {
+            conn.pending.delete(msg.seq);
+            patch({ rttMs: Math.round(performance.now() - t0) });
+          }
+        }
+      });
+
+      conn.stop =
+        session.role === "guest"
+          ? startCompanion(transport, experiences, (experienceId) => {
+              if (active === conn) patch({ activity: experienceId });
+            })
+          : undefined;
+
+      conn.heartbeat = setInterval(() => {
+        const seq = conn.pingSeq++;
+        conn.pending.set(seq, performance.now());
+        if (conn.pending.size > 32) conn.pending.delete(conn.pending.keys().next().value!);
         try {
-          transport.send({ t: "ping", seq: pingSeq++, t0: performance.now() });
+          transport.send({ t: "ping", seq, t0: performance.now() });
         } catch {
           /* socket not open yet / closing — ignore */
         }
-      }, 25_000);
-      const stop = session.role === "guest" ? startCompanion(transport, experiences) : undefined;
-      const entry = { transport, stop, keepAlive, handled: false };
-      active = entry;
+      }, HEARTBEAT_MS);
+
+      conn.presenceCheck = setInterval(() => {
+        if (active !== conn) return;
+        const present = conn.lastPeerSeen > 0 && performance.now() - conn.lastPeerSeen < PEER_TIMEOUT_MS;
+        peerPresentRef.current = present;
+        patch({ peerPresent: present });
+      }, 1_000);
 
       transport.onStateChange((s) => {
-        if (cancelled || active !== entry) return;
+        if (cancelled || active !== conn) return;
         if (s === "open") {
           attempt = 0;
           setCompanionConnected(true);
+          patch({ socketState: "open" });
         } else if (s === "closed") {
-          if (entry.handled) return;
-          entry.handled = true;
-          clearInterval(entry.keepAlive);
-          entry.stop?.();
+          if (conn.handled) return;
+          teardown(conn);
           active = null;
+          peerPresentRef.current = false;
           setCompanionConnected(false);
+          patch({ socketState: "closed", peerPresent: false, rttMs: null, activity: null });
           const delay = Math.min(1000 * 2 ** attempt, 10_000);
           attempt += 1;
           reconnectTimer = setTimeout(connect, delay);
@@ -180,9 +265,12 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
-      teardownActive();
+      const c = active;
+      active = null;
+      teardown(c);
+      c?.transport.close();
       companionTransportRef.current = null;
-      setCompanionConnected(false);
+      resetHealth();
     };
     // `experiences` is stable per session (useMemo above depends only on
     // `session`), so this effect re-runs only when room/role actually change.
@@ -207,7 +295,11 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
         timeoutMs: 180_000,
       });
       const transport = companionTransportRef.current;
-      const shouldMerge = session.role === "host" && Boolean(session.room) && companionConnected;
+      // Gate on ACTUAL peer presence (heartbeat), not just an open relay socket:
+      // firing a companion run at an empty room would block the full
+      // COMPANION_RUN_TIMEOUT_MS waiting for a `result` that never comes.
+      const shouldMerge =
+        session.role === "host" && Boolean(session.room) && peerPresentRef.current;
 
       if (!shouldMerge || !transport) return localPromise;
 
@@ -222,7 +314,7 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
       if (!guestResult) return hostResult; // no companion answer in time — local-only, still valid.
       return mergeGuestResult(hostResult, guestResult, session.topology);
     },
-    [session, companionConnected],
+    [session],
   );
 
   const runOne = useCallback(
@@ -323,6 +415,7 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
     runAllInProgress,
     session,
     companionConnected,
+    companionHealth,
     runState,
     runOne,
     runAllExperiences,

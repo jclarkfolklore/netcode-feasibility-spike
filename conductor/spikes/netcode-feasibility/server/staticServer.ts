@@ -33,6 +33,20 @@ function setSecurityHeaders(res: ServerResponse): void {
   res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
 }
 
+/**
+ * Cache policy. `index.html` (and the SPA fallback) MUST revalidate on every
+ * load — otherwise a plain refresh keeps serving a cached HTML that points at
+ * an old JS bundle, so "just refresh to get the new build" silently fails (the
+ * exact trap that forced the version-stamp/cache-buster dance). Vite's
+ * content-hashed `/assets/*` files are safe to cache forever (a new build =>
+ * a new filename), so those get `immutable`.
+ */
+function cacheControlFor(reqPath: string): string {
+  if (reqPath.endsWith(".html")) return "no-cache";
+  if (reqPath.startsWith("/assets/")) return "public, max-age=31536000, immutable";
+  return "no-cache"; // data/announcer.json etc. — cheap, correctness over caching
+}
+
 export function createStaticHandler(rootDir: string) {
   return function handleStatic(req: IncomingMessage, res: ServerResponse): void {
     setSecurityHeaders(res);
@@ -58,12 +72,14 @@ export function createStaticHandler(rootDir: string) {
             return;
           }
           res.setHeader("Content-Type", MIME[".html"]);
+          res.setHeader("Cache-Control", "no-cache"); // SPA fallback is HTML — always revalidate
           res.writeHead(200).end(indexData);
         });
         return;
       }
       const ext = path.extname(filePath);
       res.setHeader("Content-Type", MIME[ext] ?? "application/octet-stream");
+      res.setHeader("Cache-Control", cacheControlFor(reqPath));
       res.writeHead(200).end(data);
     });
   };
