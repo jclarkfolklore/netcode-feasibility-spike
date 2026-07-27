@@ -40,20 +40,27 @@ zero edits) so every number comes from the actual game code, not a stand-in.
 Results roll up into a Summary with a traffic-light composite score (feasibility) and a separate
 rollback-readiness axis.
 
-## Current status & findings
+## Current status & findings — CLOSED
 
-**Host-authoritative is confirmed as the right architecture** (rollback's determinism retrofit is
-genuinely expensive; nothing reopens it). Snapshots are tiny and cheap. The **decisive felt-lag
-number needs a real two-machine reading** — the measurement instrument has been hardened for exactly
-that (peer-presence handshake, cross-machine clock offset, sample-count floor, visibility guard,
-and a real ~80-sample distribution). The dashboard's "Not feasible" headline was a config artifact
-(a default RTT 2× the project's 20–60 ms target); at the real target the simulated felt lag is
-~2–3.5 frames.
+**Host-authoritative state-relay is confirmed feasible.** The decisive **two-machine felt-lag
+reading was taken** (deployed, over the Oregon relay, three consistent times): **p50 ~292 ms ≈
+17.5 frames at ~204 ms RTT** — and it is **relay-bound, not netcode-bound** (felt lag = RTT +
+50 ms interp + ~15–38 ms app). Isolating the relay collapsed felt lag to **4.0 frames** at a
+LAN-class relay (1.1 ms RTT); a real same-region WAN relay (20–60 ms RTT) projects to **~5–7.5
+frames**. **Client-side prediction** targets ~sub-frame own-input independent of relay (a projected
+ceiling — not yet built). Snapshots are tiny/cheap; the determinism retrofit is genuinely expensive
+(so rollback stays closed).
 
-Full multi-pass review (relevance, findings, path-to-production, an independent audit, and the
-consolidated synthesis) lives in
-[`conductor/spikes/netcode-feasibility/reviews/`](conductor/spikes/netcode-feasibility/reviews/) —
-start with `00-SYNTHESIS.md`.
+**Path to smooth gameplay:** (1) put the relay near the players (or P2P) — the dominant lever;
+(2) add client-side prediction for the local character (no determinism tax); (3) design gameplay
+around the irreducible opponent latency (≥~4–5 frames) — no frame-1 punishes, telegraphed moves,
+generous hit/block windows.
+
+> Do **not** read the summary's single composite number as a verdict — it can't express a
+> topology-conditional finding. Use the per-metric bands + distributions.
+
+Full record: the track's `008.8-measurement-results-and-optimization.md`. Earlier multi-pass review
+lives in [`conductor/spikes/netcode-feasibility/reviews/`](conductor/spikes/netcode-feasibility/reviews/).
 
 ## Repo layout (why it looks like a mini-monorepo)
 
