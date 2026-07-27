@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { useRunStore } from "../state/RunStore";
+import { SessionSetup } from "./SessionSetup";
+import { InstructionsModal } from "./InstructionsModal";
 
 interface Props {
   route: string;
@@ -34,6 +37,8 @@ export function Nav({ route, onNavigate }: Props) {
     abortAll,
   } = useRunStore();
 
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+
   // Single source of truth (RunStore.runState); "completed" maps to the "done"
   // dot class. Sidebar dots, Summary scoreboard, and page chips cannot disagree.
   const dotState = (id: string): "idle" | "running" | "done" | "failed" => {
@@ -52,8 +57,20 @@ export function Nav({ route, onNavigate }: Props) {
 
   return (
     <nav className="app-nav" data-testid="app-nav">
+      <button
+        type="button"
+        className="nav-guide"
+        data-testid="app-nav-link-instructions"
+        onClick={() => setInstructionsOpen(true)}
+      >
+        <span className="nav-guide-icon" aria-hidden="true">ⓘ</span>
+        <span className="nav-guide-text">
+          <b>How to run</b>
+          <span>two-machine setup · start here</span>
+        </span>
+      </button>
+
       <ul className="app-nav-links" data-testid="app-nav-links">
-        <li className="nav-group-label">Overview</li>
         <li>
           <button
             type="button"
@@ -135,20 +152,7 @@ export function Nav({ route, onNavigate }: Props) {
           </button>
         </div>
 
-        <div data-testid="app-nav-session-badge" className="session-badge">
-          <span className="session-badge-row">
-            <span className="session-badge-key">room</span>
-            <span className="session-badge-val">{session.room ?? "solo"}</span>
-          </span>
-          <span className="session-badge-row">
-            <span className="session-badge-key">role</span>
-            <span className="session-badge-val">{session.role}</span>
-          </span>
-          <span className="session-badge-row">
-            <span className="session-badge-key">topo</span>
-            <span className={`session-badge-val topo-${session.topology}`}>{session.topology}</span>
-          </span>
-        </div>
+        <SessionSetup />
 
         {session.room && (
           <div className="conn-panel" data-testid="companion-conn">
@@ -201,6 +205,8 @@ export function Nav({ route, onNavigate }: Props) {
           </span>
         </div>
       </div>
+
+      <InstructionsModal open={instructionsOpen} onClose={() => setInstructionsOpen(false)} />
     </nav>
   );
 }

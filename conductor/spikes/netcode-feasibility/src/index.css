@@ -412,6 +412,300 @@ pre,
   color: var(--good);
 }
 
+/* Session setup — room/role controls (replaces hand-editing ?room=&role=). */
+.session-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.session-setup-title {
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: calc(var(--fs-xs) - 1px);
+}
+.session-setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.session-setup-label {
+  color: var(--text-faint);
+}
+.session-setup-room-row {
+  display: flex;
+  gap: 4px;
+}
+.session-setup-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 4px 6px;
+}
+.session-setup-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.session-setup-mini {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 4px 7px;
+  cursor: pointer;
+}
+.session-setup-mini:hover:not(:disabled) {
+  background: var(--card-hover);
+  color: var(--text);
+}
+.session-setup-mini:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.session-setup-roles {
+  display: flex;
+  gap: 4px;
+}
+.session-setup-role {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 4px 0;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.session-setup-role.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.session-setup-actions {
+  display: flex;
+  gap: 4px;
+}
+.session-setup-apply {
+  flex: 1;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: #08111f;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  padding: 5px 0;
+  cursor: pointer;
+}
+.session-setup-apply:disabled {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: default;
+  font-weight: 400;
+}
+.session-setup-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.session-setup-copy-btns {
+  display: flex;
+  gap: 4px;
+}
+.session-setup-copy-btns .session-setup-mini {
+  flex: 1;
+}
+.session-setup .session-badge {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+/* "How to run" instructions modal. */
+.instructions-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5);
+}
+.instructions-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 7, 12, 0.72);
+  backdrop-filter: blur(4px);
+}
+.instructions-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  max-width: 620px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: var(--sp-6);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+/* Sticky so it stays pinned top-right while the body scrolls under it;
+   flex + margin-left:auto keeps it flush to the corner (no misalignment). */
+.instructions-close {
+  position: sticky;
+  top: -4px;
+  margin: -8px -6px 4px auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  z-index: 3;
+}
+.instructions-close:hover {
+  background: var(--card-hover);
+  color: var(--text);
+}
+.instructions-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.instructions-title {
+  font-size: var(--fs-xl);
+  margin: 6px 0 10px;
+  color: var(--text);
+}
+.instructions-lede {
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  margin-bottom: var(--sp-4);
+}
+.instructions-sec {
+  margin-top: var(--sp-4);
+}
+.instructions-sec h3 {
+  font-size: var(--fs-md);
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.instructions-sec p {
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.instructions-steps {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-dim);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.instructions-steps b {
+  color: var(--text);
+}
+.instructions-bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-dim);
+}
+.instructions-bands .band {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid;
+}
+.band-good {
+  color: var(--good);
+  background: var(--good-bg);
+  border-color: var(--good-border);
+}
+.band-acceptable {
+  color: var(--acceptable);
+  background: var(--acceptable-bg);
+  border-color: var(--acceptable-border);
+}
+.band-bad {
+  color: var(--bad);
+  background: var(--bad-bg);
+  border-color: var(--bad-border);
+}
+.instructions-foot {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}
+
+/* Prominent "How to run" opener at the top of the sidebar — discoverable. */
+.nav-guide {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: var(--sp-4);
+  padding: 9px 11px;
+  background: var(--accent-dim);
+  border: 1px solid rgba(91, 157, 255, 0.35);
+  border-radius: 9px;
+  color: var(--text);
+  cursor: pointer;
+}
+.nav-guide:hover {
+  background: rgba(91, 157, 255, 0.2);
+  border-color: var(--accent);
+}
+.nav-guide-icon {
+  font-size: 17px;
+  color: var(--accent-strong);
+  line-height: 1;
+}
+.nav-guide-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.nav-guide-text b {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.nav-guide-text span {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+
 .conn-panel {
   display: flex;
   flex-direction: column;
