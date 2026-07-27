@@ -28,6 +28,7 @@ export function Nav({ route, onNavigate }: Props) {
     runState,
     session,
     companionHealth,
+    hostDriven,
     runAllExperiences,
     runAllInProgress,
     abortAll,
@@ -113,10 +114,16 @@ export function Nav({ route, onNavigate }: Props) {
             type="button"
             className="btn-run-all"
             data-testid="app-nav-run-all-button"
-            disabled={runAllInProgress}
+            data-host-driven={hostDriven || undefined}
+            disabled={runAllInProgress || hostDriven}
+            title={
+              hostDriven
+                ? "Paired guest: the host drives every run. Watch the experiments go green as the host runs them."
+                : undefined
+            }
             onClick={() => void runAllExperiences()}
           >
-            {runAllInProgress ? "Running all…" : "▶ Run all"}
+            {runAllInProgress ? "Running all…" : hostDriven ? "▶ Host-driven" : "▶ Run all"}
           </button>
           <button
             type="button"

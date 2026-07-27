@@ -82,6 +82,10 @@ export interface RunStoreValue {
   companionConnected: boolean;
   /** Live control-channel health for the sidebar connection panel. */
   companionHealth: CompanionHealth;
+  /** True when THIS tab is a paired guest: the host drives every run here over
+   * the companion channel, so manual per-page Run is disabled (it would only
+   * hit the "no host driving" failure) — the UI shows "host-driven" instead. */
+  hostDriven: boolean;
   /** Single source of truth for an experiment's run state. */
   runState: (id: string) => RunState;
   runOne: (id: string) => Promise<void>;
@@ -218,8 +222,19 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
 
       conn.stop =
         session.role === "guest"
-          ? startCompanion(transport, experiences, (experienceId) => {
-              if (active === conn) patch({ activity: experienceId });
+          ? startCompanion(transport, experiences, {
+              // Mirror host-driven runs into THIS guest's own run-state so its
+              // pages, sidebar dots, and summary go running → green/red exactly
+              // like the host's — the guest is a participant, not a dead page.
+              onRunStart: (id) => {
+                setRunning((r) => ({ ...r, [id]: true }));
+                if (active === conn) patch({ activity: id });
+              },
+              onRunEnd: (id, result) => {
+                setRunning((r) => ({ ...r, [id]: false }));
+                if (result) setResults((r) => ({ ...r, [id]: result }));
+                if (active === conn) patch({ activity: null });
+              },
             })
           : undefined;
 
@@ -416,6 +431,7 @@ export function RunStoreProvider({ children }: { children: ReactNode }) {
     session,
     companionConnected,
     companionHealth,
+    hostDriven: session.role === "guest" && Boolean(session.room),
     runState,
     runOne,
     runAllExperiences,

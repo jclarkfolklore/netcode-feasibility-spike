@@ -17,13 +17,20 @@ export const COMPANION_RUN_TIMEOUT_MS = 180_000;
  * 008.3+. Wired enough that a `soloCapable` placeholder round-trips a `run`
  * -> `result` exchange end-to-end over a `LoopbackTransport` pair.
  */
+export interface CompanionHooks {
+  /** A host-driven run just STARTED on this guest — mirror it into the guest's
+   * own run-state so its UI shows "running" (not a dead/idle page). */
+  onRunStart?: (experienceId: string) => void;
+  /** A host-driven run FINISHED — hand back the very `ExperienceResult` the host
+   * receives, so the guest's own page/dots/summary show the SAME green/red
+   * outcome instead of leaving the operator staring at a stale manual failure. */
+  onRunEnd?: (experienceId: string, result: ExperienceResult | null) => void;
+}
+
 export function startCompanion(
   transport: Transport,
   experiences: Experience[],
-  /** Reports what the host is currently driving this guest to run — an
-   * experienceId while a companion run is in flight, `null` when idle. Lets the
-   * guest UI show "host is running X" instead of leaving the operator blind. */
-  onActivity?: (experienceId: string | null) => void,
+  hooks?: CompanionHooks,
 ): () => void {
   const byId = new Map(experiences.map((e) => [e.id, e]));
   let currentAbort: AbortController | null = null;
@@ -35,19 +42,21 @@ export function startCompanion(
 
     if (msg.action === "abort") {
       currentAbort?.abort("remote-abort");
-      onActivity?.(null);
+      hooks?.onRunEnd?.(msg.experienceId, null);
       return;
     }
 
     currentAbort = new AbortController();
-    onActivity?.(msg.experienceId);
+    hooks?.onRunStart?.(msg.experienceId);
     void runExperience(experience, msg.config, {
       signal: currentAbort.signal,
       timeoutMs: COMPANION_RUN_TIMEOUT_MS,
-    }).then((result) => {
-      transport.send({ t: "result", experienceId: experience.id, result });
-      onActivity?.(null);
-    });
+    })
+      .then((result) => {
+        transport.send({ t: "result", experienceId: experience.id, result });
+        hooks?.onRunEnd?.(experience.id, result);
+      })
+      .catch(() => hooks?.onRunEnd?.(experience.id, null));
   };
 
   transport.onMessage(handleMessage);

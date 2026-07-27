@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExperienceLayout } from "../components/ExperienceLayout";
 import { TcpHolBlockingDiagram } from "../components/diagrams/TcpHolBlockingDiagram";
 import { ResultView } from "../components/ResultView";
+import { RunButton } from "../components/RunButton";
 import { Callout } from "../components/Callout";
 import { useRunStore } from "../state/RunStore";
 import { runExperience } from "../lib/experience/runner";
@@ -181,7 +182,7 @@ function toggleInArray<T>(arr: T[], value: T): T[] {
  * own local result state.
  */
 export function TransportPage() {
-  const { experiences, results, running, runOne, abortAll, session } = useRunStore();
+  const { experiences, results, running, abortAll, session } = useRunStore();
   const experience = experiences.find((e) => e.id === EXPERIENCE_ID)!;
   const defaultResult = results[experience.id];
   const isRunning = running[experience.id] ?? false;
@@ -244,15 +245,7 @@ export function TransportPage() {
 
       <section className="experience-layout-section">
         <h3 data-testid="page-transport-default-heading">Default run (manual / run-all — identical config)</h3>
-        <button
-          type="button"
-          data-variant="primary"
-          data-testid="page-transport-run-button"
-          disabled={isRunning}
-          onClick={() => void runOne(experience.id)}
-        >
-          {isRunning ? "Running…" : "Run default sweep"}
-        </button>
+        <RunButton experienceId={experience.id} testId="page-transport-run-button" label="Run default sweep" />
         <button type="button" data-testid="page-transport-abort-button" disabled={!isRunning} onClick={abortAll}>
           Abort
         </button>

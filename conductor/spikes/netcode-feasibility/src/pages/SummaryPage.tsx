@@ -198,7 +198,7 @@ function PrintExperienceBlock({ result }: { result: ExperienceResult }) {
 }
 
 export function SummaryPage() {
-  const { experiences, results, runState, runAllExperiences, runAllInProgress, session, companionConnected, clearResults } =
+  const { experiences, results, runState, runAllExperiences, runAllInProgress, session, companionConnected, hostDriven, clearResults } =
     useRunStore();
   const [weightOverrides, setWeightOverrides] = useState<WeightOverrides>({});
 
@@ -314,10 +314,16 @@ export function SummaryPage() {
               type="button"
               data-variant="primary"
               data-testid="page-summary-run-all-button"
-              disabled={runAllInProgress}
+              data-host-driven={hostDriven || undefined}
+              disabled={runAllInProgress || hostDriven}
+              title={
+                hostDriven
+                  ? "Paired guest: the host drives every run. Watch the experiments go green as the host runs them."
+                  : undefined
+              }
               onClick={() => void runAllExperiences()}
             >
-              {runAllInProgress ? "Running all…" : "Run all"}
+              {runAllInProgress ? "Running all…" : hostDriven ? "Host-driven" : "Run all"}
             </button>
             <button
               type="button"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExperienceLayout } from "../components/ExperienceLayout";
 import { SnapshotDiagram } from "../components/diagrams/SnapshotDiagram";
 import { ResultView } from "../components/ResultView";
+import { RunButton } from "../components/RunButton";
 import { MetricTile, MetricTileGrid } from "../components/MetricTile";
 import { Callout } from "../components/Callout";
 import { ControlGroup } from "../components/ControlGroup";
@@ -154,7 +155,7 @@ function useLiveSnapshotDemo() {
 }
 
 export function SnapshotPage() {
-  const { experiences, results, running, runOne, abortAll } = useRunStore();
+  const { experiences, results, running, abortAll } = useRunStore();
   const experience = experiences.find((e) => e.id === EXPERIENCE_ID)!;
   const result = results[experience.id];
   const isRunning = running[experience.id] ?? false;
@@ -331,15 +332,7 @@ export function SnapshotPage() {
       </section>
 
       <div className="run-row">
-        <button
-          type="button"
-          data-variant="primary"
-          data-testid="page-sim-snapshot-run-button"
-          disabled={isRunning}
-          onClick={() => void runOne(experience.id)}
-        >
-          {isRunning ? "Running…" : "Run measurement"}
-        </button>
+        <RunButton experienceId={experience.id} testId="page-sim-snapshot-run-button" />
         <button
           type="button"
           data-testid="page-sim-snapshot-abort-button"

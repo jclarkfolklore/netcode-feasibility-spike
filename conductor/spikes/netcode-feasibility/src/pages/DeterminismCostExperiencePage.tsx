@@ -1,5 +1,6 @@
 import { ExperienceLayout } from "../components/ExperienceLayout";
 import { ResultView } from "../components/ResultView";
+import { RunButton } from "../components/RunButton";
 import { Markdown } from "../components/Markdown";
 import { DeterminismDiagram } from "../components/diagrams/DeterminismDiagram";
 import { useRunStore } from "../state/RunStore";
@@ -21,7 +22,7 @@ function magnitudeOf(estimate: string): { label: string; fill: number } {
 }
 
 export function DeterminismCostExperiencePage() {
-  const { experiences, results, running, runOne, abortAll } = useRunStore();
+  const { experiences, results, running, abortAll } = useRunStore();
   const experience = experiences.find((e) => e.id === EXPERIENCE_ID)!;
   const result = results[experience.id];
   const isRunning = running[experience.id] ?? false;
@@ -101,15 +102,11 @@ export function DeterminismCostExperiencePage() {
       </details>
 
       <div className="run-row">
-        <button
-          type="button"
-          data-variant="primary"
-          data-testid="page-determinism-cost-run-button"
-          disabled={isRunning}
-          onClick={() => void runOne(experience.id)}
-        >
-          {isRunning ? "Running…" : "Run headless reproducibility demo"}
-        </button>
+        <RunButton
+          experienceId={experience.id}
+          testId="page-determinism-cost-run-button"
+          label="Run headless reproducibility demo"
+        />
         <button
           type="button"
           data-testid="page-determinism-cost-abort-button"

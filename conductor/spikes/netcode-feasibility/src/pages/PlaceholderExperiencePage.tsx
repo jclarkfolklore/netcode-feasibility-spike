@@ -1,9 +1,10 @@
 import { ExperienceLayout } from "../components/ExperienceLayout";
 import { ResultView } from "../components/ResultView";
+import { RunButton } from "../components/RunButton";
 import { useRunStore } from "../state/RunStore";
 
 export function PlaceholderExperiencePage() {
-  const { experiences, results, running, runOne, abortAll } = useRunStore();
+  const { experiences, results, running, abortAll } = useRunStore();
   const experience = experiences.find((e) => e.id === "placeholder")!;
   const result = results[experience.id];
   const isRunning = running[experience.id] ?? false;
@@ -16,14 +17,7 @@ export function PlaceholderExperiencePage() {
       whyItMatters={experience.whyItMatters}
       howToRead={experience.howToRead}
     >
-      <button
-        type="button"
-        data-testid="page-placeholder-run-button"
-        disabled={isRunning}
-        onClick={() => void runOne(experience.id)}
-      >
-        {isRunning ? "Running…" : "Run"}
-      </button>
+      <RunButton experienceId={experience.id} testId="page-placeholder-run-button" label="Run" />
       <button
         type="button"
         data-testid="page-placeholder-abort-button"

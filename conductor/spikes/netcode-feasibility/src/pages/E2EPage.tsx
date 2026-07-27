@@ -3,6 +3,7 @@ import { ExperienceLayout } from "../components/ExperienceLayout";
 import { StaleOpponentDiagram } from "../components/diagrams/StaleOpponentDiagram";
 import { ResultView } from "../components/ResultView";
 import { useRunStore } from "../state/RunStore";
+import { RunButton } from "../components/RunButton";
 import { LoopbackTransport } from "../lib/transport/loopback";
 import { WebSocketTransport } from "../lib/transport/ws";
 import { WebRTCTransport } from "../lib/transport/webrtc";
@@ -297,7 +298,7 @@ function useE2EDemo() {
 }
 
 export function E2EPage() {
-  const { experiences, results, running, runOne, abortAll } = useRunStore();
+  const { experiences, results, running, abortAll } = useRunStore();
   const experience = experiences.find((e) => e.id === E2E_EXPERIENCE_ID)!;
   const result = results[experience.id];
   const isRunning = running[experience.id] ?? false;
@@ -575,16 +576,7 @@ export function E2EPage() {
       </section>
 
       <div className="run-row">
-        <button
-          type="button"
-          className="btn-primary"
-          data-variant="primary"
-          data-testid="page-e2e-run-button"
-          disabled={isRunning}
-          onClick={() => void runOne(experience.id)}
-        >
-          {isRunning ? "Running…" : "Run measurement"}
-        </button>
+        <RunButton experienceId={experience.id} testId="page-e2e-run-button" />
         <button type="button" data-testid="page-e2e-abort-button" disabled={!isRunning} onClick={abortAll}>
           Abort
         </button>
