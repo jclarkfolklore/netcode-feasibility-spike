@@ -1,9 +1,24 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+// Build stamp (baked at build time): a short git SHA + UTC build time, surfaced
+// in the sidebar footer so anyone looking at a deployed tab can confirm — at a
+// glance — exactly which bundle is live (no more "are we on the new build?"
+// guessing across two machines). Git may be absent in some CI images, so fall
+// back to an env override or "nogit" rather than failing the build.
+const buildSha = (() => {
+  try {
+    return execSync("git rev-parse --short HEAD", { cwd: here }).toString().trim();
+  } catch {
+    return process.env.BUILD_SHA?.trim() || "nogit";
+  }
+})();
+const buildTime = new Date().toISOString().replace(/\.\d+Z$/, "Z");
 
 // Repo root, three levels up from conductor/spikes/netcode-feasibility.
 const repoRoot = path.resolve(here, "../../..");
@@ -20,6 +35,10 @@ const repoRoot = path.resolve(here, "../../..");
 const phaserEntry = path.resolve(here, "node_modules/phaser/dist/phaser.esm.js");
 
 export default defineConfig({
+  define: {
+    __BUILD_SHA__: JSON.stringify(buildSha),
+    __BUILD_TIME__: JSON.stringify(buildTime),
+  },
   plugins: [react()],
   resolve: {
     dedupe: ["phaser"],

@@ -126,6 +126,20 @@ export function Nav({ route, onNavigate }: Props) {
             <span className={`session-badge-val topo-${session.topology}`}>{session.topology}</span>
           </span>
         </div>
+
+        <div
+          className="app-nav-build"
+          data-testid="app-nav-build"
+          title={`Build ${__BUILD_SHA__} · ${__BUILD_TIME__}`}
+        >
+          <span className="app-nav-build-key">build</span>
+          <span className="app-nav-build-val" data-testid="app-nav-build-sha">
+            {__BUILD_SHA__}
+          </span>
+          <span className="app-nav-build-time" data-testid="app-nav-build-time">
+            {__BUILD_TIME__}
+          </span>
+        </div>
       </div>
     </nav>
   );
