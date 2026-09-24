@@ -3,6 +3,8 @@
 **▶ Live:** https://netcode-feasibility-spike.onrender.com/
 &nbsp;(Render free tier — the first load after ~15 min idle takes ~30–60 s to wake; a "waking server" banner shows meanwhile.)
 
+<img src="conductor/spikes/netcode-feasibility/docs/readme/home.png" alt="The harness home page: the question it answers, the four experiments, and a diagram of the host-to-guest loop">
+
 A self-contained, deployable **measurement instrument** that answers one question for the
 [rock-em-sock-em](https://github.com/Folklore-Digital/rock-em-sock-em) browser fighting game with
 **real data instead of guesswork**:
@@ -39,6 +41,26 @@ zero edits) so every number comes from the actual game code, not a stand-in.
 
 Results roll up into a Summary with a traffic-light composite score (feasibility) and a separate
 rollback-readiness axis.
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%"><img src="conductor/spikes/netcode-feasibility/docs/readme/scoreboard.png" alt="The Summary scoreboard: per-experiment scores, headline metric tiles, and adjustable weights"><br>
+<sub><b>The scoreboard.</b> Every concern becomes a score. Each experiment gets a band, the headline metrics get tiles, and you can change the weights to see how the composite moves. Solo (single-browser) runs are labelled and kept out of the verdict.</sub></td>
+<td width="50%"><img src="conductor/spikes/netcode-feasibility/docs/readme/remote-input-live.png" alt="The remote-input experiment running live: the host renders the real fight sim, and the guest renders only the snapshots it receives"><br>
+<sub><b>The end-to-end loop, live.</b> The host (left) runs the real fight simulation. The guest (right) runs no simulation, only rendering the snapshots it receives. The diagram shows why the guest always sees the opponent a round trip plus a buffer late.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="conductor/spikes/netcode-feasibility/docs/readme/how-to-run.png" alt="The How to run guide: steps for a real two-machine measurement and for a single-browser solo preview"><br>
+<sub><b>Built-in guide.</b> Step-by-step instructions for a real two-machine measurement, plus a clearly labelled single-browser preview.</sub></td>
+<td width="50%" valign="top"><b>Headline result</b><br><br>
+Felt input lag (button press to seeing your own fighter react), median of real runs:<br><br>
+<b>292 ms</b> (≈17.5 frames) across the internet via an Oregon relay<br>
+<b>67 ms</b> (4.0 frames) with the same code and a relay on the local network<br><br>
+<sub>Same code in both runs; only the distance to the relay changed. 67 ms is the floor with no network distance. A relay in the players' own region is projected (not measured) at ~5–7.5 frames (~85–125 ms).</sub></td>
+</tr>
+</table>
 
 ## Current status & findings — CLOSED
 
