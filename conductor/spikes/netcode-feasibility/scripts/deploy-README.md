@@ -45,7 +45,7 @@ rollback-readiness axis.
 **Host-authoritative state-relay is confirmed feasible.** The decisive **two-machine felt-lag
 reading was taken** (deployed, over the Oregon relay, three consistent times): **p50 ~292 ms ≈
 17.5 frames at ~204 ms RTT** — and it is **relay-bound, not netcode-bound** (felt lag = RTT +
-50 ms interp + ~15–38 ms app). Isolating the relay collapsed felt lag to **4.0 frames** at a
+50 ms interp + ~15–38 ms app). Isolating the relay collapsed felt lag to **4.0 frames (≈67 ms)** at a
 LAN-class relay (1.1 ms RTT); a real same-region WAN relay (20–60 ms RTT) projects to **~5–7.5
 frames**. **Client-side prediction** targets ~sub-frame own-input independent of relay (a projected
 ceiling — not yet built). Snapshots are tiny/cheap; the determinism retrofit is genuinely expensive
